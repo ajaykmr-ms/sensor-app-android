@@ -104,8 +104,8 @@ public class MainActivity extends AppCompatActivity {
             mHttpClient = new AppHttpClient(HTTP_SERVER);
         }
         String dataStr = "{\"ax\":" + x + ", \"ay\":" + y + ", \"az\":" + z + "}";
-        Log.v("===>", dataStr);
-        //mHttpClient.sendHttpRequest(dataStr);
+        //Log.v("===>", dataStr);
+        mHttpClient.sendHttpRequest(dataStr);
     }
 
     /* Declare native functions here */
