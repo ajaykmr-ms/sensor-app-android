@@ -1,0 +1,6 @@
+*[Bb]uild*/
+local.properties
+*.DS_Store
+*.log
+*~
+
