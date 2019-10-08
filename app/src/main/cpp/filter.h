@@ -11,11 +11,11 @@ class Filter
 {
     struct Window
     {
-        float avg_x;
-        float avg_y;
-        float avg_z;
-        long weightage;
-        int id;    //for debugging only
+        float acc_x;    //accumulate x
+        float acc_y;    //accumulate y
+        float acc_z;    //accumulate z
+        long entries;   //number of sensor inputs in the window
+        int id;         //window id - for debugging only
     };
 
     public:
@@ -26,13 +26,9 @@ class Filter
 
 
     private:
-        //three scratch vectors for maintaining current window
-        std::vector<float> vx;
-        std::vector<float> vy;
-        std::vector<float> vz;
-        std::vector<struct Window> window;                      //store all the previous windows
+        struct Window w;                                        //current window
+        std::vector<struct Window> windows;                     //store all the previous windows
         std::chrono::steady_clock::time_point last;             //track the last update
         int id;                                                 //window id
-        float average(std::vector<float>& v);
         void print_windows();
 };

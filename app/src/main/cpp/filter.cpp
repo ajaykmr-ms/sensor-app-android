@@ -1,15 +1,15 @@
 #include "platform.h"
 #include "filter.h"
 #include <unistd.h>
-#include <numeric>
 
 static const char* kTAG = "Filter";
 
 Filter::Filter()
 {
-    vx.reserve(WINDOW_STEP * 60);
-    vy.reserve(WINDOW_STEP * 60);
-    vz.reserve(WINDOW_STEP * 60);
+    w.acc_x = 0;
+    w.acc_y = 0;
+    w.acc_z = 0;
+    w.entries = 0;
     last = std::chrono::steady_clock::now();
     id = 0;
 }
@@ -20,41 +20,33 @@ Filter::~Filter( )
 
 void Filter::processSensorData(float x, float y, float z)
 {
-     vx.push_back(x);
-     vy.push_back(y);
-     vz.push_back(z);
+    w.acc_x += x;
+    w.acc_y += y;
+    w.acc_z += z;
+    w.entries++;
 
     std::chrono::steady_clock::time_point current = std::chrono::steady_clock::now();
     auto us = std::chrono::duration_cast<std::chrono::microseconds>(current - last).count();
 
-    if ( us > WINDOW_STEP * 1000000)
+    if (us > WINDOW_STEP * 1000000)    // convert in micro-seconds
     {
-        //find the average for the current window
-        float avg_x = average(vx);
-        float avg_y = average(vy);
-        float avg_z = average(vz);
-
         //Create a new window
-        Window win;
-        win.avg_x = avg_x;
-        win.avg_y = avg_y;
-        win.avg_z = avg_z;
-        win.weightage = vx.size();
-        win.id = id++;
+        w.id = id++;
 
         //if window length is full, remove first
-        if (window.size() == WINDOW_LENGTH)
+        if (windows.size() == WINDOW_LENGTH)
         {
             float curr_avg_x=0;
             float curr_avg_y=0;
             float curr_avg_z=0;
             long entries=0;
-            for (const struct Window &w : window)
+
+            for (const struct Window &w : windows)
             {
-                curr_avg_x += w.avg_x * w.weightage;
-                curr_avg_y += w.avg_y * w.weightage;
-                curr_avg_z += w.avg_z * w.weightage;
-                entries += w.weightage;
+                curr_avg_x += w.acc_x;
+                curr_avg_y += w.acc_y;
+                curr_avg_z += w.acc_z;
+                entries += w.entries;
             }
             curr_avg_x = curr_avg_x / entries;
             curr_avg_y = curr_avg_y / entries;
@@ -62,32 +54,27 @@ void Filter::processSensorData(float x, float y, float z)
 
             //print all windows, for debugging only
             //print_windows();
+
             //send the results to java
             sendSensorMsg(g_platform_context, curr_avg_x, curr_avg_y, curr_avg_z);
 
             //Now put the new window in our window vector
-            window.erase(window.begin());
-            window.push_back(win);
+            windows.erase(windows.begin());
+            windows.push_back(w);
+
             //update the timestamp of last sensor update
             last = std::chrono::steady_clock::now();
             //clear current window
-            vx.clear();
-            vy.clear();
-            vz.clear();
-            vx.reserve(WINDOW_STEP * 60);
-            vy.reserve(WINDOW_STEP * 60);
-            vz.reserve(WINDOW_STEP * 60);
+            w.acc_x = 0;
+            w.acc_y = 0;
+            w.acc_z = 0;
+            w.entries = 0;
         }
         else
         {
-            window.push_back(win);
+            windows.push_back(w);
         }
     }
-}
-
-float Filter::average(std::vector<float>& v)
-{
-    return (float) accumulate( v.begin(), v.end(), 0.0)/v.size();
 }
 
 void Filter::print_windows( )
@@ -95,11 +82,11 @@ void Filter::print_windows( )
     //some std::strings are not supported in the NDK version i am using hence c string functions
     char msg[512];
     msg[0]='\0';
-    for (const struct Window &w : window)
+    for (const struct Window &w : windows)
     {
         char m[100];
         m[0]='\0';
-        sprintf(m, "{id: %d(%d)}", w.id, w.weightage);
+        sprintf(m, "{id: %d(%d)}", w.id, w.entries);
         strcat(msg, m);
     }
     LOGI("===> %s", msg);
